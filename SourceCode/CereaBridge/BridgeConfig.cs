@@ -15,6 +15,8 @@ namespace CereaBridge
         public int AgioPort = 9999;
         public bool UsePhidgets = true;
         public int PhidgetsDeviceSerialNumber = 0;
+        public int PhidgetsMotorSerialNumber = 0;
+        public int PhidgetsEncoderSerialNumber = 0;
         public int PhidgetsMotorChannel = 0;
         public int PhidgetsEncoderChannel = 0;
         public bool ReverseMotor = false;
@@ -36,6 +38,16 @@ namespace CereaBridge
         public bool SteerSwitchOn = true;
         public bool WorkSwitchOn = false;
 
+        public int GetEffectiveMotorSerialNumber()
+        {
+            return PhidgetsMotorSerialNumber != 0 ? PhidgetsMotorSerialNumber : PhidgetsDeviceSerialNumber;
+        }
+
+        public int GetEffectiveEncoderSerialNumber()
+        {
+            return PhidgetsEncoderSerialNumber != 0 ? PhidgetsEncoderSerialNumber : PhidgetsDeviceSerialNumber;
+        }
+
         public static string GetDefaultProfilePath()
         {
             return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ProfileFileName);
@@ -52,7 +64,7 @@ namespace CereaBridge
         {
             yield return "UDP listen: " + ListenPort.ToString(CultureInfo.InvariantCulture) + " / " + ListenPortFallback.ToString(CultureInfo.InvariantCulture);
             yield return "AgIO target: " + AgioHost + ":" + AgioPort.ToString(CultureInfo.InvariantCulture);
-            yield return "Phidgets: " + (UsePhidgets ? "enabled" : "disabled") + ", serial=" + PhidgetsDeviceSerialNumber.ToString(CultureInfo.InvariantCulture) + ", motorCh=" + PhidgetsMotorChannel.ToString(CultureInfo.InvariantCulture) + ", encoderCh=" + PhidgetsEncoderChannel.ToString(CultureInfo.InvariantCulture);
+            yield return "Phidgets: " + (UsePhidgets ? "enabled" : "disabled") + ", sharedSerial=" + PhidgetsDeviceSerialNumber.ToString(CultureInfo.InvariantCulture) + ", motorSerial=" + GetEffectiveMotorSerialNumber().ToString(CultureInfo.InvariantCulture) + ", encoderSerial=" + GetEffectiveEncoderSerialNumber().ToString(CultureInfo.InvariantCulture) + ", motorCh=" + PhidgetsMotorChannel.ToString(CultureInfo.InvariantCulture) + ", encoderCh=" + PhidgetsEncoderChannel.ToString(CultureInfo.InvariantCulture);
             yield return "IMU Brick: " + (UseImuBrick ? "enabled" : "disabled") + ", host=" + ImuHost + ":" + ImuPort.ToString(CultureInfo.InvariantCulture) + ", uid=" + (string.IsNullOrWhiteSpace(ImuUid) ? "<empty>" : ImuUid);
             yield return "Reverse flags: motor=" + ReverseMotor.ToString() + ", was=" + ReverseWas.ToString() + ", heading=" + ReverseHeading.ToString() + ", roll=" + ReverseRoll.ToString();
             yield return "Fallbacks: counts/deg=" + CountsPerDegreeFallback.ToString(CultureInfo.InvariantCulture) + ", wasOffset=" + WasOffsetFallback.ToString(CultureInfo.InvariantCulture);
@@ -62,14 +74,19 @@ namespace CereaBridge
 
         public IEnumerable<string> BuildWarningLines()
         {
-            if (UsePhidgets && PhidgetsDeviceSerialNumber == 0)
+            if (UsePhidgets && GetEffectiveMotorSerialNumber() == 0)
             {
-                yield return "PhidgetsDeviceSerialNumber is 0. The first matching device found will be used.";
+                yield return "Motor serial number is 0. The first matching Phidgets motor channel will be used.";
             }
 
-            if (UsePhidgets && PhidgetsMotorChannel == PhidgetsEncoderChannel)
+            if (UsePhidgets && GetEffectiveEncoderSerialNumber() == 0)
             {
-                yield return "Motor and encoder channel are both set to " + PhidgetsMotorChannel.ToString(CultureInfo.InvariantCulture) + ". Check if that is correct for your hardware.";
+                yield return "Encoder serial number is 0. The first matching Phidgets encoder channel will be used.";
+            }
+
+            if (UsePhidgets && GetEffectiveMotorSerialNumber() != 0 && GetEffectiveMotorSerialNumber() == GetEffectiveEncoderSerialNumber() && PhidgetsMotorChannel == PhidgetsEncoderChannel)
+            {
+                yield return "Motor and encoder use the same serial and the same channel number. Check if that is correct for your hardware.";
             }
 
             if (UseImuBrick && string.IsNullOrWhiteSpace(ImuUid))
@@ -108,6 +125,8 @@ namespace CereaBridge
                 "AgioPort=" + AgioPort.ToString(CultureInfo.InvariantCulture),
                 "UsePhidgets=" + UsePhidgets.ToString(),
                 "PhidgetsDeviceSerialNumber=" + PhidgetsDeviceSerialNumber.ToString(CultureInfo.InvariantCulture),
+                "PhidgetsMotorSerialNumber=" + PhidgetsMotorSerialNumber.ToString(CultureInfo.InvariantCulture),
+                "PhidgetsEncoderSerialNumber=" + PhidgetsEncoderSerialNumber.ToString(CultureInfo.InvariantCulture),
                 "PhidgetsMotorChannel=" + PhidgetsMotorChannel.ToString(CultureInfo.InvariantCulture),
                 "PhidgetsEncoderChannel=" + PhidgetsEncoderChannel.ToString(CultureInfo.InvariantCulture),
                 "ReverseMotor=" + ReverseMotor.ToString(),
@@ -161,6 +180,8 @@ namespace CereaBridge
                 case "AgioPort": AgioPort = ParseInt(value, AgioPort); break;
                 case "UsePhidgets": UsePhidgets = ParseBool(value, UsePhidgets); break;
                 case "PhidgetsDeviceSerialNumber": PhidgetsDeviceSerialNumber = ParseInt(value, PhidgetsDeviceSerialNumber); break;
+                case "PhidgetsMotorSerialNumber": PhidgetsMotorSerialNumber = ParseInt(value, PhidgetsMotorSerialNumber); break;
+                case "PhidgetsEncoderSerialNumber": PhidgetsEncoderSerialNumber = ParseInt(value, PhidgetsEncoderSerialNumber); break;
                 case "PhidgetsMotorChannel": PhidgetsMotorChannel = ParseInt(value, PhidgetsMotorChannel); break;
                 case "PhidgetsEncoderChannel": PhidgetsEncoderChannel = ParseInt(value, PhidgetsEncoderChannel); break;
                 case "ReverseMotor": ReverseMotor = ParseBool(value, ReverseMotor); break;
