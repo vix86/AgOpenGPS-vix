@@ -181,11 +181,11 @@ namespace CereaBridge
 
         private void ApplySteerConfig(byte[] bytes)
         {
-            if (bytes.Length >= 13 && bytes[12] > 0)
+            if (bytes.Length >= 8 && bytes[7] > 0)
             {
                 lock (_sync)
                 {
-                    _minSpeedX10 = bytes[12];
+                    _minSpeedX10 = bytes[7];
                 }
             }
         }
@@ -209,7 +209,7 @@ namespace CereaBridge
         {
             try
             {
-                SendSteerModulePacket(GetActualSteerAngleDegrees());
+                SendAutoSteerHelloPacket(GetActualSteerAngleDegrees(), GetRawWasCountsForHello());
             }
             catch (Exception ex)
             {
@@ -335,6 +335,31 @@ namespace CereaBridge
             }
         }
 
+        private short GetRawWasCountsForHello()
+        {
+            if (_encoder == null || !IsEncoderConnected)
+            {
+                return 0;
+            }
+
+            try
+            {
+                var counts = _encoder.Position;
+                if (_cfg.ReverseWas)
+                {
+                    counts = -counts;
+                }
+
+                if (counts > short.MaxValue) counts = short.MaxValue;
+                if (counts < short.MinValue) counts = short.MinValue;
+                return (short)counts;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
         private void UpdateMotor(double actualAngleDeg)
         {
             if (_motor == null || !IsMotorConnected)
@@ -428,7 +453,7 @@ namespace CereaBridge
                 var parameters = method.GetParameters();
                 if (parameters.Length >= 3)
                 {
-                    var args = new object?[] { null, null, null };
+                    var args = new object[] { (short)0, (short)0, (short)0 };
                     method.Invoke(_imu, args);
                     heading = ConvertToInt16(args[0]);
                     roll = ConvertToInt16(args[1]);
@@ -487,6 +512,33 @@ namespace CereaBridge
             bytes[11] = switches;
             bytes[12] = (byte)Math.Clamp(_lastPwm, 0, 255);
             bytes[13] = 0xCC;
+
+            _sender.Send(bytes, bytes.Length, _agioEndpoint);
+        }
+
+        private void SendAutoSteerHelloPacket(double actualAngleDeg, short rawWasCounts)
+        {
+            var steerAngle100 = (short)Math.Round(Math.Clamp(actualAngleDeg * 100.0, short.MinValue, short.MaxValue));
+            var bytes = new byte[11];
+            bytes[0] = 0x80;
+            bytes[1] = 0x81;
+            bytes[2] = 126;
+            bytes[3] = 126;
+            bytes[4] = 5;
+            WriteInt16(bytes, 5, steerAngle100);
+            WriteInt16(bytes, 7, rawWasCounts);
+
+            byte switches = 0;
+            if (_cfg.WorkSwitchOn)
+            {
+                switches |= 0x01;
+            }
+            if (_cfg.SteerSwitchOn)
+            {
+                switches |= 0x02;
+            }
+            bytes[9] = switches;
+            bytes[10] = 0xCC;
 
             _sender.Send(bytes, bytes.Length, _agioEndpoint);
         }
