@@ -12,8 +12,10 @@ namespace CereaBridge
     internal sealed partial class BridgeService
     {
         private readonly object _sync = new object();
+        private readonly TimeSpan _steerCommandTimeout = TimeSpan.FromMilliseconds(250);
         private short _imuHeading16;
         private short _imuRoll16;
+        private DateTime _lastSteerDataUtc = DateTime.MinValue;
 
         private void OpenDevices()
         {
@@ -164,6 +166,7 @@ namespace CereaBridge
 
                 var status = bytes[7];
                 _autosteerEnabled = (status & 0x01) != 0 || (status & 0x02) != 0 || Math.Abs(_desiredAngleDeg) > 0.01;
+                _lastSteerDataUtc = DateTime.UtcNow;
             }
         }
 
@@ -385,6 +388,7 @@ namespace CereaBridge
             byte highPwm;
             byte minPwm;
             byte minSpeedX10;
+            DateTime lastSteerDataUtc;
 
             lock (_sync)
             {
@@ -395,6 +399,12 @@ namespace CereaBridge
                 highPwm = _highPwm;
                 minPwm = _minPwm;
                 minSpeedX10 = _minSpeedX10;
+                lastSteerDataUtc = _lastSteerDataUtc;
+            }
+
+            if (lastSteerDataUtc == DateTime.MinValue || DateTime.UtcNow - lastSteerDataUtc > _steerCommandTimeout)
+            {
+                autosteerEnabled = false;
             }
 
             var requestedVelocity = 0.0;
