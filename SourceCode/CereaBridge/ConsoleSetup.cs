@@ -17,7 +17,9 @@ namespace CereaBridge
             cfg.AgioPort = AskInt("AgioPort", cfg.AgioPort);
 
             cfg.UsePhidgets = AskBool("UsePhidgets", cfg.UsePhidgets);
-            cfg.PhidgetsDeviceSerialNumber = AskInt("PhidgetsDeviceSerialNumber", cfg.PhidgetsDeviceSerialNumber);
+            cfg.PhidgetsDeviceSerialNumber = AskInt("PhidgetsDeviceSerialNumber (shared fallback)", cfg.PhidgetsDeviceSerialNumber);
+            cfg.PhidgetsMotorSerialNumber = AskInt("PhidgetsMotorSerialNumber (0 = use shared fallback)", cfg.PhidgetsMotorSerialNumber);
+            cfg.PhidgetsEncoderSerialNumber = AskInt("PhidgetsEncoderSerialNumber (0 = use shared fallback)", cfg.PhidgetsEncoderSerialNumber);
             cfg.PhidgetsMotorChannel = AskInt("PhidgetsMotorChannel", cfg.PhidgetsMotorChannel);
             cfg.PhidgetsEncoderChannel = AskInt("PhidgetsEncoderChannel", cfg.PhidgetsEncoderChannel);
             cfg.ReverseMotor = AskBool("ReverseMotor", cfg.ReverseMotor);
