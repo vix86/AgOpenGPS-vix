@@ -18,4 +18,11 @@
     <PackageReference Include="Tinkerforge" Version="2.1.33" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="CereaBridge.profile.ini">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
