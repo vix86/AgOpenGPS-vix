@@ -415,7 +415,7 @@ namespace CereaBridge
                 var errorDeg = desiredAngleDeg - actualAngleDeg;
                 if (Math.Abs(errorDeg) >= _cfg.DeadbandDegrees)
                 {
-                    var pwm = Math.Abs(errorDeg) * Math.Max(1, kp) * Math.Max(0.01, _cfg.VelocityGainMultiplier);
+                    var pwm = Math.Abs(errorDeg) * Math.Max(1, (int)kp) * Math.Max(0.01, _cfg.VelocityGainMultiplier);
                     if (pwm > 0 && pwm < minPwm)
                     {
                         pwm = minPwm;
