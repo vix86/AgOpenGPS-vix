@@ -128,6 +128,9 @@ namespace CereaBridge
 
             switch (bytes[3])
             {
+                case 200:
+                    HandleAgioHello();
+                    break;
                 case 0xFE:
                     ApplySteerData(bytes);
                     break;
@@ -138,6 +141,13 @@ namespace CereaBridge
                     ApplySteerConfig(bytes);
                     break;
             }
+        }
+
+        private void HandleAgioHello()
+        {
+            var actualAngleDeg = GetActualSteerAngleDegrees();
+            SendAutoSteerHelloPacket(actualAngleDeg, GetRawWasCountsForHello());
+            SendSteerModulePacket(actualAngleDeg);
         }
 
         private void ApplySteerData(byte[] bytes)
