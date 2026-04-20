@@ -227,9 +227,10 @@ namespace CereaBridge
             try
             {
                 var motor = new DCMotor();
-                if (_cfg.PhidgetsDeviceSerialNumber > 0)
+                var motorSerial = _cfg.GetEffectiveMotorSerialNumber();
+                if (motorSerial > 0)
                 {
-                    motor.DeviceSerialNumber = _cfg.PhidgetsDeviceSerialNumber;
+                    motor.DeviceSerialNumber = motorSerial;
                 }
 
                 motor.Channel = _cfg.PhidgetsMotorChannel;
@@ -249,9 +250,10 @@ namespace CereaBridge
             try
             {
                 var encoder = new Encoder();
-                if (_cfg.PhidgetsDeviceSerialNumber > 0)
+                var encoderSerial = _cfg.GetEffectiveEncoderSerialNumber();
+                if (encoderSerial > 0)
                 {
-                    encoder.DeviceSerialNumber = _cfg.PhidgetsDeviceSerialNumber;
+                    encoder.DeviceSerialNumber = encoderSerial;
                 }
 
                 encoder.Channel = _cfg.PhidgetsEncoderChannel;
@@ -422,7 +424,6 @@ namespace CereaBridge
 
                 short heading;
                 short roll;
-                short pitch;
 
                 var parameters = method.GetParameters();
                 if (parameters.Length >= 3)
@@ -431,14 +432,12 @@ namespace CereaBridge
                     method.Invoke(_imu, args);
                     heading = ConvertToInt16(args[0]);
                     roll = ConvertToInt16(args[1]);
-                    pitch = ConvertToInt16(args[2]);
                 }
                 else
                 {
                     var result = method.Invoke(_imu, null);
                     heading = ReadMember(result, "Heading", "heading");
                     roll = ReadMember(result, "Roll", "roll");
-                    pitch = ReadMember(result, "Pitch", "pitch");
                 }
 
                 if (_cfg.ReverseHeading)
