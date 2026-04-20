@@ -1,5 +1,5 @@
 using System;
-using Phidget22.Devices;
+using Phidget22;
 using Tinkerforge;
 
 namespace CereaBridge
@@ -17,13 +17,14 @@ namespace CereaBridge
                 try
                 {
                     _motor = new DCMotor();
-                    if (_cfg.PhidgetsDeviceSerialNumber > 0)
+                    var motorSerial = _cfg.GetEffectiveMotorSerialNumber();
+                    if (motorSerial > 0)
                     {
-                        _motor.DeviceSerialNumber = _cfg.PhidgetsDeviceSerialNumber;
+                        _motor.DeviceSerialNumber = motorSerial;
                     }
                     _motor.Channel = _cfg.PhidgetsMotorChannel;
                     _motor.Open(5000);
-                    _motor.Acceleration = _motor.MaxAcceleration;
+                    TrySetMotorAcceleration(_motor);
                     _motor.TargetVelocity = 0;
                     IsMotorConnected = true;
                     Console.WriteLine("Phidgets motor connected.");
@@ -31,14 +32,16 @@ namespace CereaBridge
                 catch (Exception ex)
                 {
                     Console.WriteLine("Phidgets motor not connected: " + ex.Message);
+                    _motor = null;
                 }
 
                 try
                 {
                     _encoder = new Encoder();
-                    if (_cfg.PhidgetsDeviceSerialNumber > 0)
+                    var encoderSerial = _cfg.GetEffectiveEncoderSerialNumber();
+                    if (encoderSerial > 0)
                     {
-                        _encoder.DeviceSerialNumber = _cfg.PhidgetsDeviceSerialNumber;
+                        _encoder.DeviceSerialNumber = encoderSerial;
                     }
                     _encoder.Channel = _cfg.PhidgetsEncoderChannel;
                     _encoder.Open(5000);
@@ -48,6 +51,7 @@ namespace CereaBridge
                 catch (Exception ex)
                 {
                     Console.WriteLine("Phidgets encoder not connected: " + ex.Message);
+                    _encoder = null;
                 }
             }
 
@@ -105,6 +109,17 @@ namespace CereaBridge
             IsImuConnected = false;
         }
 
+        private static void TrySetMotorAcceleration(DCMotor motor)
+        {
+            try
+            {
+                motor.Acceleration = motor.MaxAcceleration;
+            }
+            catch
+            {
+            }
+        }
+
         private int ReadCounts()
         {
             if (_encoder == null) return _wasOffset;
@@ -120,11 +135,28 @@ namespace CereaBridge
             short pitch;
             _imu.GetOrientation(out heading, out roll, out pitch);
 
-            heading16 = (short)(heading + _cfg.HeadingOffset16);
+            heading16 = NormalizeHeading16((short)(heading + _cfg.HeadingOffset16));
             roll16 = roll;
 
-            if (_cfg.ReverseHeading) heading16 = (short)-heading16;
-            if (_cfg.ReverseRoll) roll16 = (short)-roll16;
+            if (_cfg.ReverseHeading)
+            {
+                heading16 = NormalizeHeading16((short)(5760 - heading16));
+            }
+
+            if (_cfg.ReverseRoll)
+            {
+                roll16 = (short)-roll16;
+            }
+        }
+
+        private static short NormalizeHeading16(short heading)
+        {
+            var normalized = heading % 5760;
+            if (normalized < 0)
+            {
+                normalized += 5760;
+            }
+            return (short)normalized;
         }
     }
 }
