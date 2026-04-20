@@ -39,30 +39,45 @@ namespace CereaBridge
 
             switch (data[3])
             {
+                case 200:
+                    try { OnHelloTick(null); } catch { }
+                    break;
+
                 case 0xFE:
                     if (data.Length >= 13)
                     {
-                        _speedKph = BitConverter.ToUInt16(data, 5) * 0.1;
-                        _autosteerEnabled = data[7] == 1;
-                        _desiredAngleDeg = BitConverter.ToInt16(data, 8) * 0.01;
+                        lock (_sync)
+                        {
+                            _speedKph = BitConverter.ToUInt16(data, 5) * 0.1;
+                            _desiredAngleDeg = BitConverter.ToInt16(data, 8) * 0.01;
+                            var status = data[7];
+                            _autosteerEnabled = (status & 0x01) != 0 || (status & 0x02) != 0 || Math.Abs(_desiredAngleDeg) > 0.01;
+                            _lastSteerDataUtc = DateTime.UtcNow;
+                        }
                     }
                     break;
 
                 case 0xFC:
                     if (data.Length >= 13)
                     {
-                        _kp = data[5];
-                        _highPwm = data[6];
-                        _minPwm = data[8];
-                        _countsPerDegree = data[9] == 0 ? _cfg.CountsPerDegreeFallback : data[9];
-                        _wasOffset = (short)((data[11] << 8) | data[10]);
+                        lock (_sync)
+                        {
+                            _kp = data[5];
+                            _highPwm = data[6];
+                            _minPwm = data[8];
+                            _countsPerDegree = data[9] == 0 ? _cfg.CountsPerDegreeFallback : data[9];
+                            _wasOffset = (short)((data[11] << 8) | data[10]);
+                        }
                     }
                     break;
 
                 case 0xFB:
                     if (data.Length >= 8)
                     {
-                        _minSpeedX10 = data[7];
+                        lock (_sync)
+                        {
+                            _minSpeedX10 = data[7];
+                        }
                     }
                     break;
             }
