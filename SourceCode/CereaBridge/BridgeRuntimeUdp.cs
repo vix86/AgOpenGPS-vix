@@ -95,7 +95,7 @@ namespace CereaBridge
                 _desiredAngleDeg = ReadInt16(bytes, 8) / 100.0;
 
                 var status = bytes[7];
-                _autosteerEnabled = (status & 0x01) != 0 || (status & 0x02) != 0 || Math.Abs(_desiredAngleDeg) > 0.01;
+                _autosteerEnabled = (status & 0x01) != 0 || (status & 0x02) != 0;
                 _lastSteerDataUtc = DateTime.UtcNow;
             }
         }
