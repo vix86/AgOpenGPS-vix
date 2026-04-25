@@ -104,6 +104,20 @@ namespace CereaBridge
                 return;
             }
 
+            if (!_cfg.WorkSwitchOn)
+            {
+                try
+                {
+                    _motor.TargetVelocity = 0;
+                }
+                catch
+                {
+                }
+
+                _lastPwm = 0;
+                return;
+            }
+
             double desiredAngleDeg;
             double speedKph;
             bool autosteerEnabled;
