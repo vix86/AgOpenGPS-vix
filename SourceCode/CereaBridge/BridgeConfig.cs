@@ -21,6 +21,10 @@ namespace CereaBridge
         public int PhidgetsEncoderChannel = 0;
         public bool ReverseMotor = false;
         public bool ReverseWas = false;
+        public string ControlMode = "EncoderWas";
+        public double RelativeCommandGain = 1.0;
+        public double RelativeFeedbackAngle = 0.0;
+        public double RelativeMaxCommandAngle = 25.0;
         public bool UseImuBrick = true;
         public string ImuHost = "localhost";
         public int ImuPort = 4223;
@@ -38,6 +42,11 @@ namespace CereaBridge
         public int HelloPeriodMs = 250;
         public bool SteerSwitchOn = true;
         public bool WorkSwitchOn = false;
+
+        public bool IsRelativeNoWasMode()
+        {
+            return string.Equals(ControlMode, "RelativeNoWas", StringComparison.OrdinalIgnoreCase);
+        }
 
         public int GetEffectiveMotorSerialNumber()
         {
@@ -65,6 +74,7 @@ namespace CereaBridge
         {
             yield return "UDP listen: " + ListenPort.ToString(CultureInfo.InvariantCulture) + " / " + ListenPortFallback.ToString(CultureInfo.InvariantCulture);
             yield return "AgIO target: " + AgioHost + ":" + AgioPort.ToString(CultureInfo.InvariantCulture);
+            yield return "Control mode: " + ControlMode + ", relativeGain=" + RelativeCommandGain.ToString(CultureInfo.InvariantCulture) + ", relativeFeedback=" + RelativeFeedbackAngle.ToString(CultureInfo.InvariantCulture) + ", relativeMaxAngle=" + RelativeMaxCommandAngle.ToString(CultureInfo.InvariantCulture);
             yield return "Phidgets: " + (UsePhidgets ? "enabled" : "disabled") + ", sharedSerial=" + PhidgetsDeviceSerialNumber.ToString(CultureInfo.InvariantCulture) + ", motorSerial=" + GetEffectiveMotorSerialNumber().ToString(CultureInfo.InvariantCulture) + ", encoderSerial=" + GetEffectiveEncoderSerialNumber().ToString(CultureInfo.InvariantCulture) + ", motorCh=" + PhidgetsMotorChannel.ToString(CultureInfo.InvariantCulture) + ", encoderCh=" + PhidgetsEncoderChannel.ToString(CultureInfo.InvariantCulture);
             yield return "IMU Brick: " + (UseImuBrick ? "enabled" : "disabled") + ", host=" + ImuHost + ":" + ImuPort.ToString(CultureInfo.InvariantCulture) + ", uid=" + (string.IsNullOrWhiteSpace(ImuUid) ? "<empty>" : ImuUid);
             yield return "Reverse flags: motor=" + ReverseMotor.ToString() + ", was=" + ReverseWas.ToString() + ", heading=" + ReverseHeading.ToString() + ", roll=" + ReverseRoll.ToString();
@@ -75,6 +85,11 @@ namespace CereaBridge
 
         public IEnumerable<string> BuildWarningLines()
         {
+            if (IsRelativeNoWasMode())
+            {
+                yield return "RelativeNoWas is experimental. Encoder is not used as true wheel angle feedback.";
+            }
+
             if (UsePhidgets && GetEffectiveMotorSerialNumber() == 0)
             {
                 yield return "Motor serial number is 0. The first matching Phidgets motor channel will be used.";
@@ -137,6 +152,10 @@ namespace CereaBridge
                 "PhidgetsEncoderChannel=" + PhidgetsEncoderChannel.ToString(CultureInfo.InvariantCulture),
                 "ReverseMotor=" + ReverseMotor.ToString(),
                 "ReverseWas=" + ReverseWas.ToString(),
+                "ControlMode=" + ControlMode,
+                "RelativeCommandGain=" + RelativeCommandGain.ToString(CultureInfo.InvariantCulture),
+                "RelativeFeedbackAngle=" + RelativeFeedbackAngle.ToString(CultureInfo.InvariantCulture),
+                "RelativeMaxCommandAngle=" + RelativeMaxCommandAngle.ToString(CultureInfo.InvariantCulture),
                 "UseImuBrick=" + UseImuBrick.ToString(),
                 "ImuHost=" + ImuHost,
                 "ImuPort=" + ImuPort.ToString(CultureInfo.InvariantCulture),
@@ -193,6 +212,10 @@ namespace CereaBridge
                 case "PhidgetsEncoderChannel": PhidgetsEncoderChannel = ParseInt(value, PhidgetsEncoderChannel); break;
                 case "ReverseMotor": ReverseMotor = ParseBool(value, ReverseMotor); break;
                 case "ReverseWas": ReverseWas = ParseBool(value, ReverseWas); break;
+                case "ControlMode": ControlMode = value; break;
+                case "RelativeCommandGain": RelativeCommandGain = ParseDouble(value, RelativeCommandGain); break;
+                case "RelativeFeedbackAngle": RelativeFeedbackAngle = ParseDouble(value, RelativeFeedbackAngle); break;
+                case "RelativeMaxCommandAngle": RelativeMaxCommandAngle = ParseDouble(value, RelativeMaxCommandAngle); break;
                 case "UseImuBrick": UseImuBrick = ParseBool(value, UseImuBrick); break;
                 case "ImuHost": ImuHost = value; break;
                 case "ImuPort": ImuPort = ParseInt(value, ImuPort); break;
