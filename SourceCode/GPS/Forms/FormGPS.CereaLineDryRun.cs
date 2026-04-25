@@ -13,7 +13,7 @@ namespace AgOpenGPS
         public double CereaLineDryRunXteMeters { get; private set; }
         public double CereaLineDryRunHeadingErrorDegrees { get; private set; }
 
-        private void StartCereaLineDryRun()
+        internal void StartCereaLineDryRun()
         {
             if (cereaLineDryRunTimer != null)
             {
