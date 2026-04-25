@@ -9,6 +9,7 @@ namespace AgOpenGPS
         private static FormGPS cereaLineDryRunForm;
 
         private CereaLineRegulator cereaLineDryRunRegulator;
+        private CereaLineRegulatorConfig cereaLineDryRunConfig;
         private Timer cereaLineDryRunTimer;
 
         public double CereaLineDryRunOutput { get; private set; }
@@ -51,14 +52,12 @@ namespace AgOpenGPS
                 return;
             }
 
-            cereaLineDryRunRegulator = new CereaLineRegulator
-            {
-                Enabled = false
-            };
+            cereaLineDryRunConfig = CereaLineRegulatorConfig.LoadOrCreateDefault();
+            cereaLineDryRunRegulator = cereaLineDryRunConfig.CreateRegulator();
 
             cereaLineDryRunTimer = new Timer
             {
-                Interval = 50
+                Interval = cereaLineDryRunConfig.TickMs
             };
 
             cereaLineDryRunTimer.Tick += CereaLineDryRunTimer_Tick;
@@ -67,7 +66,7 @@ namespace AgOpenGPS
 
         private void CereaLineDryRunTimer_Tick(object sender, EventArgs e)
         {
-            if (cereaLineDryRunRegulator == null || vehicle == null || pn == null)
+            if (cereaLineDryRunRegulator == null || cereaLineDryRunConfig == null || vehicle == null || pn == null)
             {
                 return;
             }
