@@ -30,6 +30,7 @@ namespace CereaBridge
         public short HeadingOffset16 = 0;
         public double CountsPerDegreeFallback = 30.0;
         public int WasOffsetFallback = 0;
+        public bool UseAogWasCalibration = false;
         public double VelocityGainMultiplier = 1.0;
         public double MaxMotorOutput = 1.0;
         public double DeadbandDegrees = 0.25;
@@ -67,7 +68,7 @@ namespace CereaBridge
             yield return "Phidgets: " + (UsePhidgets ? "enabled" : "disabled") + ", sharedSerial=" + PhidgetsDeviceSerialNumber.ToString(CultureInfo.InvariantCulture) + ", motorSerial=" + GetEffectiveMotorSerialNumber().ToString(CultureInfo.InvariantCulture) + ", encoderSerial=" + GetEffectiveEncoderSerialNumber().ToString(CultureInfo.InvariantCulture) + ", motorCh=" + PhidgetsMotorChannel.ToString(CultureInfo.InvariantCulture) + ", encoderCh=" + PhidgetsEncoderChannel.ToString(CultureInfo.InvariantCulture);
             yield return "IMU Brick: " + (UseImuBrick ? "enabled" : "disabled") + ", host=" + ImuHost + ":" + ImuPort.ToString(CultureInfo.InvariantCulture) + ", uid=" + (string.IsNullOrWhiteSpace(ImuUid) ? "<empty>" : ImuUid);
             yield return "Reverse flags: motor=" + ReverseMotor.ToString() + ", was=" + ReverseWas.ToString() + ", heading=" + ReverseHeading.ToString() + ", roll=" + ReverseRoll.ToString();
-            yield return "Fallbacks: counts/deg=" + CountsPerDegreeFallback.ToString(CultureInfo.InvariantCulture) + ", wasOffset=" + WasOffsetFallback.ToString(CultureInfo.InvariantCulture);
+            yield return "Encoder calibration: counts/deg=" + CountsPerDegreeFallback.ToString(CultureInfo.InvariantCulture) + ", wasOffset=" + WasOffsetFallback.ToString(CultureInfo.InvariantCulture) + ", useAogWasCalibration=" + UseAogWasCalibration.ToString();
             yield return "Motor tuning: gainMul=" + VelocityGainMultiplier.ToString(CultureInfo.InvariantCulture) + ", maxOut=" + MaxMotorOutput.ToString(CultureInfo.InvariantCulture) + ", deadband=" + DeadbandDegrees.ToString(CultureInfo.InvariantCulture);
             yield return "Timing: telemetry=" + TelemetryPeriodMs.ToString(CultureInfo.InvariantCulture) + " ms, hello=" + HelloPeriodMs.ToString(CultureInfo.InvariantCulture) + " ms";
         }
@@ -97,6 +98,11 @@ namespace CereaBridge
             if (CountsPerDegreeFallback <= 0)
             {
                 yield return "CountsPerDegreeFallback must be greater than zero.";
+            }
+
+            if (UseAogWasCalibration)
+            {
+                yield return "AOG WAS calibration override is enabled. AOG can overwrite CountsPerDegreeFallback and WasOffsetFallback while running.";
             }
 
             if (MaxMotorOutput <= 0 || MaxMotorOutput > 1.0)
@@ -140,6 +146,7 @@ namespace CereaBridge
                 "HeadingOffset16=" + HeadingOffset16.ToString(CultureInfo.InvariantCulture),
                 "CountsPerDegreeFallback=" + CountsPerDegreeFallback.ToString(CultureInfo.InvariantCulture),
                 "WasOffsetFallback=" + WasOffsetFallback.ToString(CultureInfo.InvariantCulture),
+                "UseAogWasCalibration=" + UseAogWasCalibration.ToString(),
                 "VelocityGainMultiplier=" + VelocityGainMultiplier.ToString(CultureInfo.InvariantCulture),
                 "MaxMotorOutput=" + MaxMotorOutput.ToString(CultureInfo.InvariantCulture),
                 "DeadbandDegrees=" + DeadbandDegrees.ToString(CultureInfo.InvariantCulture),
@@ -195,6 +202,7 @@ namespace CereaBridge
                 case "HeadingOffset16": HeadingOffset16 = (short)ParseInt(value, HeadingOffset16); break;
                 case "CountsPerDegreeFallback": CountsPerDegreeFallback = ParseDouble(value, CountsPerDegreeFallback); break;
                 case "WasOffsetFallback": WasOffsetFallback = ParseInt(value, WasOffsetFallback); break;
+                case "UseAogWasCalibration": UseAogWasCalibration = ParseBool(value, UseAogWasCalibration); break;
                 case "VelocityGainMultiplier": VelocityGainMultiplier = ParseDouble(value, VelocityGainMultiplier); break;
                 case "MaxMotorOutput": MaxMotorOutput = ParseDouble(value, MaxMotorOutput); break;
                 case "DeadbandDegrees": DeadbandDegrees = ParseDouble(value, DeadbandDegrees); break;
