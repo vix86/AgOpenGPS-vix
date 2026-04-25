@@ -1,0 +1,31 @@
+name: GPS Debug Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'SourceCode/GPS/**'
+      - 'SourceCode/AgLibrary/**'
+      - 'SourceCode/AgOpenGPS.Core/**'
+      - 'SourceCode/Keypad/**'
+      - 'SourceCode/Directory.Build.props'
+      - '.github/workflows/gps-debug-build.yml'
+
+jobs:
+  gps-debug-build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+
+      - name: Restore GPS project
+        run: dotnet restore SourceCode/GPS/AgOpenGPS.csproj
+
+      - name: Build GPS project Debug
+        run: dotnet build SourceCode/GPS/AgOpenGPS.csproj -c Debug --no-restore
