@@ -1,11 +1,13 @@
 using System;
-using System.Runtime.CompilerServices;
 using System.Windows.Forms;
 
 namespace AgOpenGPS
 {
     public partial class FormGPS
     {
+        private static bool cereaLineDryRunHooked;
+        private static FormGPS cereaLineDryRunForm;
+
         private CereaLineRegulator cereaLineDryRunRegulator;
         private Timer cereaLineDryRunTimer;
 
@@ -13,7 +15,36 @@ namespace AgOpenGPS
         public double CereaLineDryRunXteMeters { get; private set; }
         public double CereaLineDryRunHeadingErrorDegrees { get; private set; }
 
-        internal void StartCereaLineDryRun()
+        static FormGPS()
+        {
+            Application.Idle += CereaLineDryRunApplicationIdle;
+        }
+
+        private static void CereaLineDryRunApplicationIdle(object sender, EventArgs e)
+        {
+            if (cereaLineDryRunHooked)
+            {
+                return;
+            }
+
+            cereaLineDryRunForm = Application.OpenForms["FormGPS"] as FormGPS;
+            if (cereaLineDryRunForm == null)
+            {
+                return;
+            }
+
+            cereaLineDryRunHooked = true;
+            cereaLineDryRunForm.StartCereaLineDryRun();
+            cereaLineDryRunForm.FormClosed += CereaLineDryRunFormClosed;
+        }
+
+        private static void CereaLineDryRunFormClosed(object sender, FormClosedEventArgs e)
+        {
+            Application.Idle -= CereaLineDryRunApplicationIdle;
+            cereaLineDryRunForm = null;
+        }
+
+        private void StartCereaLineDryRun()
         {
             if (cereaLineDryRunTimer != null)
             {
@@ -50,42 +81,6 @@ namespace AgOpenGPS
                 isBtnAutoSteerOn,
                 pn.vtgSpeed,
                 vehicle.minSteerSpeed);
-        }
-    }
-
-    internal static class CereaLineDryRunBootstrap
-    {
-        private static bool hooked;
-        private static FormGPS form;
-
-        [ModuleInitializer]
-        internal static void Init()
-        {
-            Application.Idle += Application_Idle;
-        }
-
-        private static void Application_Idle(object sender, EventArgs e)
-        {
-            if (hooked)
-            {
-                return;
-            }
-
-            form = Application.OpenForms["FormGPS"] as FormGPS;
-            if (form == null)
-            {
-                return;
-            }
-
-            hooked = true;
-            form.StartCereaLineDryRun();
-            form.FormClosed += Form_FormClosed;
-        }
-
-        private static void Form_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            Application.Idle -= Application_Idle;
-            form = null;
         }
     }
 }
