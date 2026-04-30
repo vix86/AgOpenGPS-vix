@@ -1,0 +1,76 @@
+name: Release Work Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - work
+    paths:
+      - 'SourceCode/**'
+      - '.github/workflows/release-work.yml'
+
+permissions:
+  contents: write
+
+env:
+  SOLUTION_FILE_PATH: ./SourceCode/AgOpenGPS.sln
+  BUILD_CONFIGURATION: Release
+  PUBLISH_DIR: ./AgOpenGPS
+  ZIP_NAME: AgOpenGPS-CereaNoWAS-work.zip
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    - name: Setup dotnet
+      uses: actions/setup-dotnet@v4
+
+    - name: Restore
+      run: dotnet restore ${{ env.SOLUTION_FILE_PATH }}
+
+    - name: Build
+      run: dotnet build --no-restore --configuration ${{ env.BUILD_CONFIGURATION }} ${{ env.SOLUTION_FILE_PATH }}
+
+    - name: Test
+      run: dotnet test --no-restore --no-build --configuration ${{ env.BUILD_CONFIGURATION }} ${{ env.SOLUTION_FILE_PATH }}
+
+    - name: Publish
+      run: dotnet publish --no-restore --configuration ${{ env.BUILD_CONFIGURATION }} ${{ env.SOLUTION_FILE_PATH }}
+
+    - name: Create ZIP
+      shell: pwsh
+      run: |
+        if (Test-Path "${{ env.ZIP_NAME }}") { Remove-Item "${{ env.ZIP_NAME }}" -Force }
+        Compress-Archive -Path "${{ env.PUBLISH_DIR }}\*" -DestinationPath "${{ env.ZIP_NAME }}" -Force
+        Get-Item "${{ env.ZIP_NAME }}"
+
+    - name: Create GitHub Release
+      shell: pwsh
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        $tag = "cerea-nowas-work-${{ github.run_number }}"
+        $title = "AgOpenGPS Cerea No-WAS work build ${{ github.run_number }}"
+        $notes = @"
+        Automated work-branch test release.
+
+        Branch: work
+        Commit: ${{ github.sha }}
+
+        Included package should contain:
+        - AgOpenGPS.exe
+        - CereaStyleNoWas.ini
+        - Phidget22.NET.dll
+        - Tinkerforge.dll
+
+        Default config keeps Cerea No-WAS disabled:
+        [bridge]
+        enabled=false
+        "@
+        gh release create $tag "${{ env.ZIP_NAME }}" --target "${{ github.sha }}" --title $title --notes $notes --prerelease
