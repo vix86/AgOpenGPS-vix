@@ -37,16 +37,34 @@ namespace AgOpenGPS.Hardware.CereaStyle
 
         private void ConnectMotor()
         {
+            var driver = (settings.Driver ?? "phidget21").Trim().ToLowerInvariant();
+            if (driver == "phidget21" || driver == "1065" || driver == "1065_1b")
+            {
+                ConnectMotorControl21();
+                return;
+            }
+
+            ConnectMotor22();
+            if (!MotorConnected)
+            {
+                ConnectMotorControl21();
+            }
+        }
+
+        private void ConnectMotor22()
+        {
             var type22 = FindType("Phidget22.DCMotor");
             if (type22 == null)
             {
-                ConnectMotorControl21();
+                LastError = AppendError(LastError, "Phidget22.DCMotor not found.");
+                MotorConnected = false;
                 return;
             }
 
             try
             {
                 motor = Activator.CreateInstance(type22);
+                if (settings.SerialNumber > 0) SetProperty(motor, "DeviceSerialNumber", settings.SerialNumber);
                 Invoke(motor, "Open", settings.OpenTimeoutMilliseconds);
                 SetProperty(motor, "Acceleration", settings.Acceleration);
                 SetProperty(motor, "TargetVelocity", 0.0);
@@ -57,7 +75,6 @@ namespace AgOpenGPS.Hardware.CereaStyle
             {
                 LastError = AppendError(LastError, "Phidget22 motor failed: " + Unwrap(ex).Message);
                 MotorConnected = false;
-                ConnectMotorControl21();
             }
         }
 
@@ -70,19 +87,20 @@ namespace AgOpenGPS.Hardware.CereaStyle
                 {
                     MotorConnected = false;
                     EncoderConnected = false;
-                    LastError = AppendError(LastError, "Phidget21 MotorControl not found. 1065_1B needs old Phidget21 runtime/Phidgets.dll beside AgOpenGPS.exe or installed with Cerea.");
+                    LastError = AppendError(LastError, "Phidget21 MotorControl not found. Phidgets 1065_1B needs legacy Phidget21 runtime / Phidgets.dll.");
                     return;
                 }
 
                 motorControl21 = Activator.CreateInstance(type21);
-                InvokeAny(motorControl21, "open");
+                if (settings.SerialNumber > 0) InvokeAny(motorControl21, "open", settings.SerialNumber);
+                else InvokeAny(motorControl21, "open");
                 InvokeAny(motorControl21, "waitForAttachment", settings.OpenTimeoutMilliseconds);
                 SetPhidget21Velocity(0.0);
                 EncoderCounts = GetPhidget21EncoderPosition();
                 MotorConnected = true;
                 EncoderConnected = true;
                 isPhidget21 = true;
-                LastError = AppendError(LastError, "Using Phidget21 MotorControl fallback.");
+                LastError = AppendError(LastError, "Using Phidget21 MotorControl 1065_1B serial=" + (settings.SerialNumber > 0 ? settings.SerialNumber.ToString() : "any") + ".");
             }
             catch (Exception ex)
             {
@@ -125,21 +143,14 @@ namespace AgOpenGPS.Hardware.CereaStyle
             }
 
             RefreshEncoderPosition();
-
             var command = Clamp(normalizedCommand, -1.0, 1.0);
             if (settings.InvertMotorOutput) command = -command;
             var velocity = command * settings.MaximumTargetVelocity;
 
             try
             {
-                if (isPhidget21)
-                {
-                    SetPhidget21Velocity(velocity * 100.0);
-                }
-                else
-                {
-                    SetProperty(motor, "TargetVelocity", velocity);
-                }
+                if (isPhidget21) SetPhidget21Velocity(velocity * 100.0);
+                else SetProperty(motor, "TargetVelocity", velocity);
                 LastTargetVelocity = velocity;
             }
             catch (Exception ex)
@@ -165,14 +176,8 @@ namespace AgOpenGPS.Hardware.CereaStyle
             if (!EncoderConnected) return;
             try
             {
-                if (isPhidget21)
-                {
-                    SetPhidget21EncoderPosition(0);
-                }
-                else
-                {
-                    SetProperty(encoder, "Position", 0);
-                }
+                if (isPhidget21) SetPhidget21EncoderPosition(0);
+                else SetProperty(encoder, "Position", 0);
                 EncoderCounts = 0;
             }
             catch (Exception ex)
@@ -236,7 +241,7 @@ namespace AgOpenGPS.Hardware.CereaStyle
                 if (t != null) return t;
             }
 
-            foreach (var name in new[] { "Phidget22.NET", "Phidget22", "Phidget21.NET", "Phidgets" })
+            foreach (var name in new[] { "Phidget21.NET", "Phidgets", "Phidget22.NET", "Phidget22" })
             {
                 try
                 {
@@ -369,6 +374,8 @@ namespace AgOpenGPS.Hardware.CereaStyle
 
     public sealed class PhidgetsCereaMotorSettings
     {
+        public string Driver { get; set; } = "phidget21";
+        public int SerialNumber { get; set; }
         public int OpenTimeoutMilliseconds { get; set; } = 5000;
         public double MaximumTargetVelocity { get; set; } = 0.35;
         public double Acceleration { get; set; } = 4.0;
