@@ -18,9 +18,20 @@ namespace AgOpenGPS
         private CereaStyleNoWasController cereaNoWasController;
         private PhidgetsCereaMotor cereaPhidgetsMotor;
 
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (Visible)
+            {
+                InitializeCereaStyleNoWasMode();
+            }
+        }
+
         private void InitializeCereaStyleNoWasMode()
         {
             if (cereaNoWasPanel != null) return;
+
+            FormClosed += delegate { SafeStopCereaStyleNoWasMode(); };
 
             cereaNoWasController = new CereaStyleNoWasController(new CereaStyleNoWasSettings
             {
