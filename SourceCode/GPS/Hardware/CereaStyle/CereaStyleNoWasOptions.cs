@@ -10,6 +10,10 @@ namespace AgOpenGPS.Hardware.CereaStyle
         public const string FileName = "CereaStyleNoWas.ini";
 
         public bool Enabled { get; private set; }
+        public bool PanelMinimized { get; private set; }
+        public bool AutoConnect { get; private set; }
+        public bool AutoArm { get; private set; }
+        public bool AutoStartWithAogAutoSteer { get; private set; }
         public CereaStyleNoWasSettings ControllerSettings { get; private set; }
         public PhidgetsCereaMotorSettings MotorSettings { get; private set; }
         public TinkerforgeCereaImuSettings ImuSettings { get; private set; }
@@ -40,6 +44,11 @@ namespace AgOpenGPS.Hardware.CereaStyle
 
             var values = ReadIni(path);
             options.Enabled = GetBool(values, "bridge.enabled", false);
+            options.PanelMinimized = GetBool(values, "startup.panelMinimized", true);
+            options.AutoConnect = GetBool(values, "startup.autoConnect", true);
+            options.AutoArm = GetBool(values, "startup.autoArm", true);
+            options.AutoStartWithAogAutoSteer = GetBool(values, "startup.autoStartWithAogAutoSteer", true);
+
             options.ControllerSettings.RequireRtkFix = GetBool(values, "safety.requireRtkFix", true);
             options.ControllerSettings.MinimumSpeedKph = GetDouble(values, "safety.minSpeedKph", 0.4);
             options.ControllerSettings.MaximumSpeedKph = GetDouble(values, "safety.maxSpeedKph", 20.0);
