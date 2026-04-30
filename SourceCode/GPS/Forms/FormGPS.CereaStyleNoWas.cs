@@ -18,6 +18,7 @@ namespace AgOpenGPS
         private Timer cereaNoWasTimer;
         private CereaStyleNoWasController cereaNoWasController;
         private PhidgetsCereaMotor cereaPhidgetsMotor;
+        private TinkerforgeCereaImu cereaImu;
         private CereaStyleNoWasOptions cereaNoWasOptions;
         private bool cereaNoWasInitChecked;
         private bool cereaNoWasEnabled;
@@ -45,14 +46,15 @@ namespace AgOpenGPS
 
             cereaNoWasController = new CereaStyleNoWasController(cereaNoWasOptions.ControllerSettings);
             cereaPhidgetsMotor = new PhidgetsCereaMotor(cereaNoWasOptions.MotorSettings);
+            cereaImu = new TinkerforgeCereaImu(cereaNoWasOptions.ImuSettings);
 
             cereaNoWasPanel = new Panel
             {
                 Name = "cereaNoWasPanel",
                 Left = 82,
                 Top = 78,
-                Width = 700,
-                Height = 86,
+                Width = 760,
+                Height = 92,
                 BackColor = Color.FromArgb(40, 40, 40),
                 ForeColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle,
@@ -70,8 +72,8 @@ namespace AgOpenGPS
             {
                 Left = 6,
                 Top = 40,
-                Width = 684,
-                Height = 38,
+                Width = 744,
+                Height = 44,
                 ForeColor = Color.White,
                 BackColor = Color.Transparent,
                 Text = "Cerea No-WAS: " + cereaNoWasOptions.StatusMessage
@@ -113,6 +115,10 @@ namespace AgOpenGPS
         {
             if (!cereaNoWasEnabled || cereaPhidgetsMotor == null) return;
             cereaPhidgetsMotor.Connect();
+            if (cereaNoWasOptions != null && cereaNoWasOptions.ImuSettings.Enabled && cereaImu != null)
+            {
+                cereaImu.Connect();
+            }
             UpdateCereaNoWasStatus(BuildCereaDiagText("CONNECT"));
         }
 
@@ -174,6 +180,10 @@ namespace AgOpenGPS
             {
                 cereaPhidgetsMotor.RefreshEncoderPosition();
             }
+            if (cereaImu != null && cereaNoWasOptions != null && cereaNoWasOptions.ImuSettings.Enabled)
+            {
+                cereaImu.Refresh();
+            }
 
             var p = string.IsNullOrWhiteSpace(prefix) ? string.Empty : prefix + ": ";
             var cfg = cereaNoWasOptions == null ? "config=-" : "config=" + cereaNoWasOptions.Enabled;
@@ -182,15 +192,25 @@ namespace AgOpenGPS
                 " encoder=" + cereaPhidgetsMotor.EncoderConnected +
                 " enc=" + cereaPhidgetsMotor.EncoderCounts +
                 " vel=" + cereaPhidgetsMotor.LastTargetVelocity.ToString("0.000");
+            var imu = cereaImu == null || cereaNoWasOptions == null || !cereaNoWasOptions.ImuSettings.Enabled ? " imu=off" : " " + cereaImu.GetStatusText();
             var fault = cereaNoWasController == null ? string.Empty : " fault=" + cereaNoWasController.LastFault;
             var err = cereaPhidgetsMotor == null || string.IsNullOrWhiteSpace(cereaPhidgetsMotor.LastError) ? string.Empty : " error=" + cereaPhidgetsMotor.LastError;
-            return p + cfg + " " + motor + fault + err;
+            return p + cfg + " " + motor + imu + fault + err;
         }
 
         private void CereaNoWasTimer_Tick(object sender, EventArgs e)
         {
             if (!cereaNoWasEnabled || cereaNoWasController == null || cereaPhidgetsMotor == null) return;
             cereaPhidgetsMotor.RefreshEncoderPosition();
+            if (cereaImu != null && cereaNoWasOptions != null && cereaNoWasOptions.ImuSettings.Enabled)
+            {
+                cereaImu.Refresh();
+                if (cereaNoWasOptions.ImuSettings.FeedAogAhrs && cereaImu.Connected)
+                {
+                    ahrs.imuHeading = cereaImu.HeadingDegrees;
+                    ahrs.imuRoll = cereaImu.RollDegrees;
+                }
+            }
 
             if (!isBtnAutoSteerOn)
             {
@@ -248,6 +268,7 @@ namespace AgOpenGPS
             try { cereaNoWasController?.Disarm(); } catch { }
             try { cereaPhidgetsMotor?.Stop(); } catch { }
             try { cereaPhidgetsMotor?.Dispose(); } catch { }
+            try { cereaImu?.Dispose(); } catch { }
         }
     }
 }
