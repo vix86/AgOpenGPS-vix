@@ -4,6 +4,7 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <OutputType>WinExe</OutputType>
     <UseWindowsForms>true</UseWindowsForms>
+    <StartupObject>CereaPilot.WinFormsEntry</StartupObject>
     <PublishDir>..\..\AgOpenGPS\</PublishDir>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <LangVersion>latest</LangVersion>
