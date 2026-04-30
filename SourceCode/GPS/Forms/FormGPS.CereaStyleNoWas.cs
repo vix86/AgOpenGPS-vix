@@ -22,6 +22,7 @@ namespace AgOpenGPS
         private CereaStyleNoWasOptions cereaNoWasOptions;
         private bool cereaNoWasInitChecked;
         private bool cereaNoWasEnabled;
+        private bool cereaNoWasDisposed;
 
         protected override void OnVisibleChanged(EventArgs e)
         {
@@ -137,7 +138,7 @@ namespace AgOpenGPS
             {
                 cereaNoWasController.Stop();
                 cereaPhidgetsMotor.Stop();
-                cereaStartStopButton.Text = "START";
+                SetCereaStartButton(false);
                 UpdateCereaNoWasStatus("Stopped. " + BuildCereaDiagText(""));
                 return;
             }
@@ -148,17 +149,13 @@ namespace AgOpenGPS
             }
 
             cereaNoWasController.Start();
-            cereaStartStopButton.Text = "STOP";
+            SetCereaStartButton(true);
             UpdateCereaNoWasStatus("Started. Motor output still requires AOG AutoSteer ON and RTK FIX. " + BuildCereaDiagText(""));
         }
 
         private void CereaDisarmButton_Click(object sender, EventArgs e)
         {
-            if (!cereaNoWasEnabled || cereaNoWasController == null || cereaPhidgetsMotor == null) return;
-            cereaNoWasController.Disarm();
-            cereaPhidgetsMotor.Stop();
-            cereaStartStopButton.Text = "START";
-            UpdateCereaNoWasStatus("DISARMED. Motor stopped. " + BuildCereaDiagText(""));
+            HardStopCereaNoWas("DISARMED. Motor stopped.");
         }
 
         private void CereaZeroButton_Click(object sender, EventArgs e)
@@ -238,6 +235,11 @@ namespace AgOpenGPS
             var output = cereaNoWasController.Update(input);
             cereaPhidgetsMotor.ApplyCommand(output.MotorCommand);
 
+            if (output.SafetyState == CereaStyleSafetyState.Fault)
+            {
+                SetCereaStartButton(false);
+            }
+
             if (cereaNoWasController.IsRunning || output.SafetyState == CereaStyleSafetyState.Fault)
             {
                 UpdateCereaNoWasStatus(
@@ -253,6 +255,23 @@ namespace AgOpenGPS
             }
         }
 
+        private void SetCereaStartButton(bool running)
+        {
+            if (cereaStartStopButton != null)
+            {
+                cereaStartStopButton.Text = running ? "STOP" : "START";
+            }
+        }
+
+        private void HardStopCereaNoWas(string message)
+        {
+            if (!cereaNoWasEnabled) return;
+            try { cereaNoWasController?.Disarm(); } catch { }
+            try { cereaPhidgetsMotor?.Stop(); } catch { }
+            SetCereaStartButton(false);
+            UpdateCereaNoWasStatus(message + " " + BuildCereaDiagText(""));
+        }
+
         private void UpdateCereaNoWasStatus(string text)
         {
             if (cereaStatusLabel != null)
@@ -263,12 +282,15 @@ namespace AgOpenGPS
 
         private void SafeStopCereaStyleNoWasMode()
         {
-            if (!cereaNoWasEnabled) return;
+            if (!cereaNoWasEnabled || cereaNoWasDisposed) return;
+            cereaNoWasDisposed = true;
             try { cereaNoWasTimer?.Stop(); } catch { }
+            try { cereaNoWasTimer?.Dispose(); } catch { }
             try { cereaNoWasController?.Disarm(); } catch { }
             try { cereaPhidgetsMotor?.Stop(); } catch { }
             try { cereaPhidgetsMotor?.Dispose(); } catch { }
             try { cereaImu?.Dispose(); } catch { }
+            SetCereaStartButton(false);
         }
     }
 }
