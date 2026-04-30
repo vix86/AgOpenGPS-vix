@@ -17,11 +17,17 @@ namespace AgOpenGPS
         private Timer cereaNoWasTimer;
         private CereaStyleNoWasController cereaNoWasController;
         private PhidgetsCereaMotor cereaPhidgetsMotor;
+        private bool cereaNoWasInitChecked;
+        private bool cereaNoWasEnabled;
 
         protected override void OnVisibleChanged(EventArgs e)
         {
             base.OnVisibleChanged(e);
-            if (Visible)
+            if (!Visible || cereaNoWasInitChecked) return;
+
+            cereaNoWasInitChecked = true;
+            cereaNoWasEnabled = CereaStyleNoWasOptions.IsEnabled();
+            if (cereaNoWasEnabled)
             {
                 InitializeCereaStyleNoWasMode();
             }
@@ -29,6 +35,7 @@ namespace AgOpenGPS
 
         private void InitializeCereaStyleNoWasMode()
         {
+            if (!cereaNoWasEnabled) return;
             if (cereaNoWasPanel != null) return;
 
             FormClosed += delegate { SafeStopCereaStyleNoWasMode(); };
@@ -85,7 +92,7 @@ namespace AgOpenGPS
                 Height = 24,
                 ForeColor = Color.White,
                 BackColor = Color.Transparent,
-                Text = "Cerea No-WAS: disabled. Encoder is motor feedback only, not WAS."
+                Text = "Cerea No-WAS: enabled by flag. Encoder is motor feedback only, not WAS."
             };
 
             cereaNoWasPanel.Controls.Add(cereaConnectButton);
@@ -121,12 +128,14 @@ namespace AgOpenGPS
 
         private void CereaConnectButton_Click(object sender, EventArgs e)
         {
+            if (!cereaNoWasEnabled || cereaPhidgetsMotor == null) return;
             cereaPhidgetsMotor.Connect();
             UpdateCereaNoWasStatus("Connect: motor=" + cereaPhidgetsMotor.MotorConnected + " encoder=" + cereaPhidgetsMotor.EncoderConnected + " " + cereaPhidgetsMotor.LastError);
         }
 
         private void CereaArmButton_Click(object sender, EventArgs e)
         {
+            if (!cereaNoWasEnabled || cereaNoWasController == null || cereaPhidgetsMotor == null) return;
             cereaNoWasController.Arm();
             cereaPhidgetsMotor.Stop();
             UpdateCereaNoWasStatus("ARMED. Press AOG AutoSteer + START to allow motor output.");
@@ -134,6 +143,7 @@ namespace AgOpenGPS
 
         private void CereaStartStopButton_Click(object sender, EventArgs e)
         {
+            if (!cereaNoWasEnabled || cereaNoWasController == null || cereaPhidgetsMotor == null) return;
             if (cereaNoWasController.IsRunning)
             {
                 cereaNoWasController.Stop();
@@ -155,6 +165,7 @@ namespace AgOpenGPS
 
         private void CereaDisarmButton_Click(object sender, EventArgs e)
         {
+            if (!cereaNoWasEnabled || cereaNoWasController == null || cereaPhidgetsMotor == null) return;
             cereaNoWasController.Disarm();
             cereaPhidgetsMotor.Stop();
             cereaStartStopButton.Text = "START";
@@ -163,13 +174,14 @@ namespace AgOpenGPS
 
         private void CereaZeroButton_Click(object sender, EventArgs e)
         {
+            if (!cereaNoWasEnabled || cereaPhidgetsMotor == null) return;
             cereaPhidgetsMotor.ResetEncoderZero();
             UpdateCereaNoWasStatus("Encoder zero set. Counts=" + cereaPhidgetsMotor.EncoderCounts);
         }
 
         private void CereaNoWasTimer_Tick(object sender, EventArgs e)
         {
-            if (cereaNoWasController == null || cereaPhidgetsMotor == null) return;
+            if (!cereaNoWasEnabled || cereaNoWasController == null || cereaPhidgetsMotor == null) return;
 
             if (!isBtnAutoSteerOn)
             {
@@ -221,6 +233,7 @@ namespace AgOpenGPS
 
         private void SafeStopCereaStyleNoWasMode()
         {
+            if (!cereaNoWasEnabled) return;
             try { cereaNoWasTimer?.Stop(); } catch { }
             try { cereaNoWasController?.Disarm(); } catch { }
             try { cereaPhidgetsMotor?.Stop(); } catch { }
