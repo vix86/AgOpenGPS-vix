@@ -1,19 +1,17 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 
 namespace AgOpenGPS.Hardware.CereaStyle
 {
-    /// <summary>
-    /// Reflection-based Phidgets 1065_1B DCMotor + Phidgets encoder adapter.
-    /// This keeps the main AOG net48 project buildable even when Phidget22.NET is not referenced at compile time.
-    /// Encoder position is motor/steering-wheel travel feedback only, not wheel angle/WAS.
-    /// </summary>
     public sealed class PhidgetsCereaMotor : IDisposable
     {
         private readonly PhidgetsCereaMotorSettings settings;
         private object motor;
         private object encoder;
+        private object motorControl21;
+        private bool isPhidget21;
         private bool disposed;
 
         public PhidgetsCereaMotor(PhidgetsCereaMotorSettings settings)
@@ -31,31 +29,66 @@ namespace AgOpenGPS.Hardware.CereaStyle
         {
             LastError = string.Empty;
             ConnectMotor();
-            ConnectEncoder();
+            if (!isPhidget21)
+            {
+                ConnectEncoder();
+            }
         }
 
         private void ConnectMotor()
         {
+            var type22 = FindType("Phidget22.DCMotor");
+            if (type22 == null)
+            {
+                ConnectMotorControl21();
+                return;
+            }
+
             try
             {
-                var type = FindType("Phidget22.DCMotor");
-                if (type == null)
-                {
-                    MotorConnected = false;
-                    LastError = AppendError(LastError, "Phidget22.DCMotor not found. Install Phidgets driver/runtime or copy Phidget22.NET beside AgOpenGPS.exe.");
-                    return;
-                }
-
-                motor = Activator.CreateInstance(type);
+                motor = Activator.CreateInstance(type22);
                 Invoke(motor, "Open", settings.OpenTimeoutMilliseconds);
                 SetProperty(motor, "Acceleration", settings.Acceleration);
                 SetProperty(motor, "TargetVelocity", 0.0);
                 MotorConnected = true;
+                isPhidget21 = false;
             }
             catch (Exception ex)
             {
-                LastError = AppendError(LastError, "Motor connect failed: " + Unwrap(ex).Message);
+                LastError = AppendError(LastError, "Phidget22 motor failed: " + Unwrap(ex).Message);
                 MotorConnected = false;
+                ConnectMotorControl21();
+            }
+        }
+
+        private void ConnectMotorControl21()
+        {
+            try
+            {
+                var type21 = FindType("Phidgets.MotorControl");
+                if (type21 == null)
+                {
+                    MotorConnected = false;
+                    EncoderConnected = false;
+                    LastError = AppendError(LastError, "Phidget21 MotorControl not found. 1065_1B needs old Phidget21 runtime/Phidgets.dll beside AgOpenGPS.exe or installed with Cerea.");
+                    return;
+                }
+
+                motorControl21 = Activator.CreateInstance(type21);
+                InvokeAny(motorControl21, "open");
+                InvokeAny(motorControl21, "waitForAttachment", settings.OpenTimeoutMilliseconds);
+                SetPhidget21Velocity(0.0);
+                EncoderCounts = GetPhidget21EncoderPosition();
+                MotorConnected = true;
+                EncoderConnected = true;
+                isPhidget21 = true;
+                LastError = AppendError(LastError, "Using Phidget21 MotorControl fallback.");
+            }
+            catch (Exception ex)
+            {
+                MotorConnected = false;
+                EncoderConnected = false;
+                LastError = AppendError(LastError, "Phidget21 MotorControl connect failed: " + Unwrap(ex).Message);
             }
         }
 
@@ -85,7 +118,7 @@ namespace AgOpenGPS.Hardware.CereaStyle
 
         public void ApplyCommand(double normalizedCommand)
         {
-            if (!MotorConnected || motor == null)
+            if (!MotorConnected)
             {
                 LastTargetVelocity = 0.0;
                 return;
@@ -95,11 +128,18 @@ namespace AgOpenGPS.Hardware.CereaStyle
 
             var command = Clamp(normalizedCommand, -1.0, 1.0);
             if (settings.InvertMotorOutput) command = -command;
-
             var velocity = command * settings.MaximumTargetVelocity;
+
             try
             {
-                SetProperty(motor, "TargetVelocity", velocity);
+                if (isPhidget21)
+                {
+                    SetPhidget21Velocity(velocity * 100.0);
+                }
+                else
+                {
+                    SetProperty(motor, "TargetVelocity", velocity);
+                }
                 LastTargetVelocity = velocity;
             }
             catch (Exception ex)
@@ -114,20 +154,25 @@ namespace AgOpenGPS.Hardware.CereaStyle
             LastTargetVelocity = 0.0;
             try
             {
-                if (motor != null) SetProperty(motor, "TargetVelocity", 0.0);
+                if (isPhidget21) SetPhidget21Velocity(0.0);
+                else if (motor != null) SetProperty(motor, "TargetVelocity", 0.0);
             }
-            catch
-            {
-                // Safety stop must not throw.
-            }
+            catch { }
         }
 
         public void ResetEncoderZero()
         {
-            if (!EncoderConnected || encoder == null) return;
+            if (!EncoderConnected) return;
             try
             {
-                SetProperty(encoder, "Position", 0);
+                if (isPhidget21)
+                {
+                    SetPhidget21EncoderPosition(0);
+                }
+                else
+                {
+                    SetProperty(encoder, "Position", 0);
+                }
                 EncoderCounts = 0;
             }
             catch (Exception ex)
@@ -138,10 +183,10 @@ namespace AgOpenGPS.Hardware.CereaStyle
 
         public void RefreshEncoderPosition()
         {
-            if (!EncoderConnected || encoder == null) return;
+            if (!EncoderConnected) return;
             try
             {
-                EncoderCounts = GetLongProperty(encoder, "Position");
+                EncoderCounts = isPhidget21 ? GetPhidget21EncoderPosition() : GetLongProperty(encoder, "Position");
             }
             catch
             {
@@ -158,6 +203,29 @@ namespace AgOpenGPS.Hardware.CereaStyle
             TryDispose(encoder);
             TryInvoke(motor, "Close");
             TryDispose(motor);
+            TryInvokeAny(motorControl21, "close");
+            TryDispose(motorControl21);
+        }
+
+        private void SetPhidget21Velocity(double velocityPercent)
+        {
+            var motors = GetMemberValue(motorControl21, "motors") ?? GetMemberValue(motorControl21, "Motors");
+            var motor0 = GetIndexedValue(motors, 0);
+            SetPropertyAny(motor0, "Velocity", Clamp(velocityPercent, -100.0, 100.0));
+        }
+
+        private long GetPhidget21EncoderPosition()
+        {
+            var encoders = GetMemberValue(motorControl21, "encoders") ?? GetMemberValue(motorControl21, "Encoders");
+            var enc0 = GetIndexedValue(encoders, 0);
+            return GetLongPropertyAny(enc0, "Position");
+        }
+
+        private void SetPhidget21EncoderPosition(long position)
+        {
+            var encoders = GetMemberValue(motorControl21, "encoders") ?? GetMemberValue(motorControl21, "Encoders");
+            var enc0 = GetIndexedValue(encoders, 0);
+            SetPropertyAny(enc0, "Position", position);
         }
 
         private static Type FindType(string fullName)
@@ -168,7 +236,7 @@ namespace AgOpenGPS.Hardware.CereaStyle
                 if (t != null) return t;
             }
 
-            foreach (var name in new[] { "Phidget22.NET", "Phidget22" })
+            foreach (var name in new[] { "Phidget22.NET", "Phidget22", "Phidget21.NET", "Phidgets" })
             {
                 try
                 {
@@ -179,13 +247,54 @@ namespace AgOpenGPS.Hardware.CereaStyle
                 catch { }
             }
 
+            foreach (var dll in new[] { "Phidget21.NET.dll", "Phidgets.dll", "phidget21.NET.dll" })
+            {
+                try
+                {
+                    var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, dll);
+                    if (!File.Exists(path)) continue;
+                    var asm = Assembly.LoadFrom(path);
+                    var t = asm.GetType(fullName, false);
+                    if (t != null) return t;
+                }
+                catch { }
+            }
+
             return null;
+        }
+
+        private static object GetMemberValue(object target, string name)
+        {
+            if (target == null) return null;
+            var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase;
+            var prop = target.GetType().GetProperty(name, flags);
+            if (prop != null) return prop.GetValue(target, null);
+            var field = target.GetType().GetField(name, flags);
+            return field == null ? null : field.GetValue(target);
+        }
+
+        private static object GetIndexedValue(object target, int index)
+        {
+            if (target == null) return null;
+            var prop = target.GetType().GetProperties().FirstOrDefault(p => p.GetIndexParameters().Length == 1);
+            if (prop != null) return prop.GetValue(target, new object[] { index });
+            var method = target.GetType().GetMethods().FirstOrDefault(m => m.Name == "get_Item" && m.GetParameters().Length == 1);
+            return method == null ? null : method.Invoke(target, new object[] { index });
         }
 
         private static void SetProperty(object target, string name, object value)
         {
             var prop = target.GetType().GetProperty(name);
             if (prop == null || !prop.CanWrite) return;
+            var converted = Convert.ChangeType(value, prop.PropertyType);
+            prop.SetValue(target, converted, null);
+        }
+
+        private static void SetPropertyAny(object target, string name, object value)
+        {
+            if (target == null) throw new InvalidOperationException("Target is null for property " + name);
+            var prop = target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
+            if (prop == null || !prop.CanWrite) throw new MissingMemberException(target.GetType().FullName, name);
             var converted = Convert.ChangeType(value, prop.PropertyType);
             prop.SetValue(target, converted, null);
         }
@@ -197,6 +306,14 @@ namespace AgOpenGPS.Hardware.CereaStyle
             return Convert.ToInt64(prop.GetValue(target, null));
         }
 
+        private static long GetLongPropertyAny(object target, string name)
+        {
+            if (target == null) return 0;
+            var prop = target.GetType().GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
+            if (prop == null) return 0;
+            return Convert.ToInt64(prop.GetValue(target, null));
+        }
+
         private static void Invoke(object target, string methodName, params object[] args)
         {
             var method = target.GetType().GetMethods().FirstOrDefault(m => m.Name == methodName && m.GetParameters().Length == args.Length);
@@ -204,13 +321,21 @@ namespace AgOpenGPS.Hardware.CereaStyle
             method.Invoke(target, args);
         }
 
+        private static void InvokeAny(object target, string methodName, params object[] args)
+        {
+            var method = target.GetType().GetMethods().FirstOrDefault(m => string.Equals(m.Name, methodName, StringComparison.OrdinalIgnoreCase) && m.GetParameters().Length == args.Length);
+            if (method == null) throw new MissingMethodException(target.GetType().FullName, methodName);
+            method.Invoke(target, args);
+        }
+
         private static void TryInvoke(object target, string methodName)
         {
-            try
-            {
-                if (target != null) Invoke(target, methodName);
-            }
-            catch { }
+            try { if (target != null) Invoke(target, methodName); } catch { }
+        }
+
+        private static void TryInvokeAny(object target, string methodName)
+        {
+            try { if (target != null) InvokeAny(target, methodName); } catch { }
         }
 
         private static void TryDispose(object target)
