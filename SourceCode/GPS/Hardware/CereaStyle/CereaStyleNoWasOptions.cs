@@ -62,6 +62,7 @@ namespace AgOpenGPS.Hardware.CereaStyle
             options.ControllerSettings.StallTimeoutMilliseconds = GetInt(values, "encoder.stallTimeoutMs", 750);
 
             options.MotorSettings.Driver = GetString(values, "motor.driver", "phidget21");
+            options.MotorSettings.SerialNumber = GetInt(values, "motor.serial", 0);
             options.MotorSettings.MaximumTargetVelocity = GetDouble(values, "motor.maximumTargetVelocity", 0.35);
             options.MotorSettings.Acceleration = GetDouble(values, "motor.acceleration", 4.0);
             options.MotorSettings.InvertMotorOutput = GetBool(values, "motor.invertMotorOutput", false);
