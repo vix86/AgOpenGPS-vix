@@ -18,18 +18,6 @@ namespace AgOpenGPS
         private CereaStyleNoWasController cereaNoWasController;
         private PhidgetsCereaMotor cereaPhidgetsMotor;
 
-        protected override void OnShown(EventArgs e)
-        {
-            base.OnShown(e);
-            InitializeCereaStyleNoWasMode();
-        }
-
-        protected override void OnFormClosing(FormClosingEventArgs e)
-        {
-            SafeStopCereaStyleNoWasMode();
-            base.OnFormClosing(e);
-        }
-
         private void InitializeCereaStyleNoWasMode()
         {
             if (cereaNoWasPanel != null) return;
@@ -172,8 +160,6 @@ namespace AgOpenGPS
         {
             if (cereaNoWasController == null || cereaPhidgetsMotor == null) return;
 
-            // The new mode is intentionally gated by AOG AutoSteer button.
-            // This prevents accidental motor output when the normal AOG autosteer state is OFF.
             if (!isBtnAutoSteerOn)
             {
                 cereaPhidgetsMotor.Stop();
