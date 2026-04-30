@@ -12,6 +12,7 @@ namespace AgOpenGPS.Hardware.CereaStyle
         public bool Enabled { get; private set; }
         public CereaStyleNoWasSettings ControllerSettings { get; private set; }
         public PhidgetsCereaMotorSettings MotorSettings { get; private set; }
+        public TinkerforgeCereaImuSettings ImuSettings { get; private set; }
         public string LoadedPath { get; private set; }
         public string StatusMessage { get; private set; }
 
@@ -19,6 +20,7 @@ namespace AgOpenGPS.Hardware.CereaStyle
         {
             ControllerSettings = new CereaStyleNoWasSettings();
             MotorSettings = new PhidgetsCereaMotorSettings();
+            ImuSettings = new TinkerforgeCereaImuSettings();
             LoadedPath = string.Empty;
             StatusMessage = string.Empty;
         }
@@ -64,6 +66,13 @@ namespace AgOpenGPS.Hardware.CereaStyle
             options.MotorSettings.InvertMotorOutput = GetBool(values, "motor.invertMotorOutput", false);
             options.MotorSettings.OpenTimeoutMilliseconds = GetInt(values, "motor.openTimeoutMs", 5000);
 
+            options.ImuSettings.Enabled = GetBool(values, "imu.enabled", false);
+            options.ImuSettings.Host = GetString(values, "imu.host", "localhost");
+            options.ImuSettings.Port = GetInt(values, "imu.port", 4223);
+            options.ImuSettings.Uid = GetString(values, "imu.uid", string.Empty);
+            options.ImuSettings.HeadingOffsetDegrees = GetDouble(values, "imu.headingOffsetDegrees", 0.0);
+            options.ImuSettings.FeedAogAhrs = GetBool(values, "imu.feedAogAhrs", true);
+
             options.StatusMessage = options.Enabled ? "Config enabled; Cerea No-WAS available." : "Config loaded; Cerea No-WAS disabled.";
             return options;
         }
@@ -88,6 +97,11 @@ namespace AgOpenGPS.Hardware.CereaStyle
                 values[(section.Length == 0 ? key : section + "." + key)] = value;
             }
             return values;
+        }
+
+        private static string GetString(Dictionary<string, string> values, string key, string fallback)
+        {
+            return values.TryGetValue(key, out var value) ? value : fallback;
         }
 
         private static bool GetBool(Dictionary<string, string> values, string key, bool fallback)
