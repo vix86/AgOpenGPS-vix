@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -87,7 +88,7 @@ namespace AgOpenGPS.Hardware.CereaStyle
                 {
                     MotorConnected = false;
                     EncoderConnected = false;
-                    LastError = AppendError(LastError, "Phidget21 MotorControl not found. Phidgets 1065_1B needs legacy Phidget21 runtime / Phidgets.dll.");
+                    LastError = AppendError(LastError, "Phidget21 MotorControl not found. Checked AgOpenGPS folder and standard Phidgets install folders.");
                     return;
                 }
 
@@ -252,11 +253,10 @@ namespace AgOpenGPS.Hardware.CereaStyle
                 catch { }
             }
 
-            foreach (var dll in new[] { "Phidget21.NET.dll", "Phidgets.dll", "phidget21.NET.dll" })
+            foreach (var path in GetCandidateAssemblyPaths())
             {
                 try
                 {
-                    var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, dll);
                     if (!File.Exists(path)) continue;
                     var asm = Assembly.LoadFrom(path);
                     var t = asm.GetType(fullName, false);
@@ -266,6 +266,26 @@ namespace AgOpenGPS.Hardware.CereaStyle
             }
 
             return null;
+        }
+
+        private static IEnumerable<string> GetCandidateAssemblyPaths()
+        {
+            var dlls = new[] { "Phidget21.NET.dll", "Phidgets.dll", "phidget21.NET.dll", "Phidget22.NET.dll", "Phidget22.dll" };
+            var dirs = new[]
+            {
+                AppDomain.CurrentDomain.BaseDirectory,
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Phidgets"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Phidgets")
+            };
+
+            foreach (var dir in dirs)
+            {
+                if (string.IsNullOrWhiteSpace(dir)) continue;
+                foreach (var dll in dlls)
+                {
+                    yield return Path.Combine(dir, dll);
+                }
+            }
         }
 
         private static object GetMemberValue(object target, string name)
