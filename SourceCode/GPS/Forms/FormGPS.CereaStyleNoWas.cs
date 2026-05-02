@@ -7,6 +7,11 @@ namespace AgOpenGPS
 {
     public partial class FormGPS
     {
+        private const int CereaPanelExpandedWidth = 760;
+        private const int CereaPanelExpandedHeight = 92;
+        private const int CereaPanelCollapsedWidth = 92;
+        private const int CereaPanelCollapsedHeight = 38;
+
         private Panel cereaNoWasPanel;
         private Button cereaToggleButton;
         private Button cereaConnectButton;
@@ -58,8 +63,8 @@ namespace AgOpenGPS
                 Name = "cereaNoWasPanel",
                 Left = 82,
                 Top = 78,
-                Width = 760,
-                Height = 92,
+                Width = CereaPanelExpandedWidth,
+                Height = CereaPanelExpandedHeight,
                 BackColor = Color.FromArgb(40, 40, 40),
                 ForeColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle,
@@ -143,8 +148,10 @@ namespace AgOpenGPS
             cereaNoWasPanelCollapsed = collapsed;
             if (cereaNoWasPanel == null) return;
 
-            cereaNoWasPanel.Height = collapsed ? 38 : 92;
-            if (cereaToggleButton != null) cereaToggleButton.Text = collapsed ? "CEREA +" : "CEREA -";
+            cereaNoWasPanel.SuspendLayout();
+            cereaNoWasPanel.Width = collapsed ? CereaPanelCollapsedWidth : CereaPanelExpandedWidth;
+            cereaNoWasPanel.Height = collapsed ? CereaPanelCollapsedHeight : CereaPanelExpandedHeight;
+            if (cereaToggleButton != null) cereaToggleButton.Text = collapsed ? "CEREA" : "CEREA -";
             if (cereaStatusLabel != null) cereaStatusLabel.Visible = !collapsed;
             if (cereaConnectButton != null) cereaConnectButton.Visible = !collapsed;
             if (cereaArmButton != null) cereaArmButton.Visible = !collapsed;
@@ -152,6 +159,8 @@ namespace AgOpenGPS
             if (cereaDisarmButton != null) cereaDisarmButton.Visible = !collapsed;
             if (cereaZeroButton != null) cereaZeroButton.Visible = !collapsed;
             if (cereaDiagButton != null) cereaDiagButton.Visible = !collapsed;
+            cereaNoWasPanel.ResumeLayout();
+            cereaNoWasPanel.BringToFront();
         }
 
         private void AutoConnectCereaNoWas()
