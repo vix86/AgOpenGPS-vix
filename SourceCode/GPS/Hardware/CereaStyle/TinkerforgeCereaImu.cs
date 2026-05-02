@@ -1,14 +1,13 @@
 using System;
-using System.Linq;
-using System.Reflection;
+using Tinkerforge;
 
 namespace AgOpenGPS.Hardware.CereaStyle
 {
     public sealed class TinkerforgeCereaImu : IDisposable
     {
         private readonly TinkerforgeCereaImuSettings settings;
-        private object ipConnection;
-        private object imu;
+        private IPConnection ipConnection;
+        private BrickIMUV2 imu;
         private bool disposed;
 
         public TinkerforgeCereaImu(TinkerforgeCereaImuSettings settings)
@@ -41,24 +40,17 @@ namespace AgOpenGPS.Hardware.CereaStyle
 
             try
             {
-                var ipType = FindType("Tinkerforge.IPConnection");
-                var imuType = FindType("Tinkerforge.BrickIMUV2");
-                if (ipType == null || imuType == null)
-                {
-                    LastError = "Tinkerforge runtime not found.";
-                    return;
-                }
-
-                ipConnection = Activator.CreateInstance(ipType);
-                imu = Activator.CreateInstance(imuType, settings.Uid, ipConnection);
-                Invoke(ipConnection, "Connect", settings.Host, settings.Port);
+                ipConnection = new IPConnection();
+                imu = new BrickIMUV2(settings.Uid, ipConnection);
+                ipConnection.Connect(settings.Host, settings.Port);
                 Connected = true;
                 Refresh();
             }
             catch (Exception ex)
             {
-                LastError = "IMU connect failed: " + Unwrap(ex).Message;
+                LastError = "IMU connect failed: " + ex.Message;
                 Connected = false;
+                TryClose();
             }
         }
 
@@ -68,22 +60,17 @@ namespace AgOpenGPS.Hardware.CereaStyle
 
             try
             {
-                var method = imu.GetType().GetMethods().FirstOrDefault(m => m.Name == "GetOrientation" && m.GetParameters().Length == 3);
-                if (method == null)
-                {
-                    LastError = "GetOrientation method not found.";
-                    return;
-                }
-
-                object[] args = { 0, 0, 0 };
-                method.Invoke(imu, args);
-                HeadingDegrees = NormalizeDegrees(Convert.ToInt32(args[0]) / 16.0 + settings.HeadingOffsetDegrees);
-                RollDegrees = Convert.ToInt32(args[1]) / 16.0;
-                PitchDegrees = Convert.ToInt32(args[2]) / 16.0;
+                short heading;
+                short roll;
+                short pitch;
+                imu.GetOrientation(out heading, out roll, out pitch);
+                HeadingDegrees = NormalizeDegrees(heading / 16.0 + settings.HeadingOffsetDegrees);
+                RollDegrees = roll / 16.0;
+                PitchDegrees = pitch / 16.0;
             }
             catch (Exception ex)
             {
-                LastError = "IMU read failed: " + Unwrap(ex).Message;
+                LastError = "IMU read failed: " + ex.Message;
                 Connected = false;
             }
         }
@@ -97,60 +84,14 @@ namespace AgOpenGPS.Hardware.CereaStyle
         {
             if (disposed) return;
             disposed = true;
-            TryInvoke(ipConnection, "Disconnect");
-            TryDispose(imu);
-            TryDispose(ipConnection);
+            TryClose();
         }
 
-        private static Type FindType(string fullName)
+        private void TryClose()
         {
-            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                var t = asm.GetType(fullName, false);
-                if (t != null) return t;
-            }
-
-            try
-            {
-                var asm = Assembly.Load("Tinkerforge");
-                return asm.GetType(fullName, false);
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        private static void Invoke(object target, string methodName, params object[] args)
-        {
-            var method = target.GetType().GetMethods().FirstOrDefault(m => m.Name == methodName && m.GetParameters().Length == args.Length);
-            if (method == null) throw new MissingMethodException(target.GetType().FullName, methodName);
-            method.Invoke(target, args);
-        }
-
-        private static void TryInvoke(object target, string methodName)
-        {
-            try
-            {
-                if (target != null) Invoke(target, methodName);
-            }
-            catch { }
-        }
-
-        private static void TryDispose(object target)
-        {
-            try
-            {
-                var disposable = target as IDisposable;
-                if (disposable != null) disposable.Dispose();
-            }
-            catch { }
-        }
-
-        private static Exception Unwrap(Exception ex)
-        {
-            var tie = ex as TargetInvocationException;
-            return tie != null && tie.InnerException != null ? tie.InnerException : ex;
+            try { ipConnection?.Disconnect(); } catch { }
+            ipConnection = null;
+            imu = null;
         }
 
         private static double NormalizeDegrees(double degrees)
