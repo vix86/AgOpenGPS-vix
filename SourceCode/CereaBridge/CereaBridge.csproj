@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <OutputType>Exe</OutputType>
-    <PublishDir>..\..\AgOpenGPS\</PublishDir>
+    <PublishDir>..\..\CereaBridge\</PublishDir>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
