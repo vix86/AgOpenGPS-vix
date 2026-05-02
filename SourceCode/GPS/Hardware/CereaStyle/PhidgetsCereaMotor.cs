@@ -83,12 +83,12 @@ namespace AgOpenGPS.Hardware.CereaStyle
         {
             try
             {
-                var type21 = FindType("Phidgets.MotorControl");
+                var type21 = FindType("Phidgets.Devices.MotorControl") ?? FindType("Phidgets.MotorControl");
                 if (type21 == null)
                 {
                     MotorConnected = false;
                     EncoderConnected = false;
-                    LastError = AppendError(LastError, "Phidget21 MotorControl not found. Checked AgOpenGPS folder and standard Phidgets install folders.");
+                    LastError = AppendError(LastError, "Phidget21 MotorControl type not found. Tried Phidgets.Devices.MotorControl and Phidgets.MotorControl.");
                     return;
                 }
 
@@ -101,7 +101,7 @@ namespace AgOpenGPS.Hardware.CereaStyle
                 MotorConnected = true;
                 EncoderConnected = true;
                 isPhidget21 = true;
-                LastError = AppendError(LastError, "Using Phidget21 MotorControl 1065_1B serial=" + (settings.SerialNumber > 0 ? settings.SerialNumber.ToString() : "any") + ".");
+                LastError = AppendError(LastError, "Using " + type21.FullName + " 1065_1B serial=" + (settings.SerialNumber > 0 ? settings.SerialNumber.ToString() : "any") + ".");
             }
             catch (Exception ex)
             {
